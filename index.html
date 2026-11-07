@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#10233b" />
+  <title>薬液注入 切替計算</title>
+  <style>
+    :root{color-scheme:light;--ink:#16263b;--muted:#607083;--bg:#eef3f8;--blue:#1666be;--green:#14825d;--line:#d9e1eb;--danger:#bb3b34}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;font-size:16px;line-height:1.5}
+    main{width:min(100%,560px);margin:auto;min-height:100dvh;padding:20px 16px calc(28px + env(safe-area-inset-bottom))}
+    h1{font-size:25px;margin:0 0 4px;letter-spacing:.02em}.sub{font-size:13px;color:var(--muted);margin:0 0 18px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:17px;margin:0 0 14px;box-shadow:0 2px 9px #112c4910}
+    .section-title{font-size:16px;font-weight:800;margin:0 0 12px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    label{font-weight:700;font-size:14px;display:block;margin-bottom:5px}input{font:inherit;width:100%;height:50px;border:2px solid var(--line);border-radius:11px;background:white;padding:7px 12px;color:var(--ink);font-weight:750;font-size:21px}input:focus{outline:none;border-color:var(--blue)}
+    .hint{color:var(--muted);font-size:13px;margin:8px 0 0}.ratio{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.ratio button{border:2px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:11px 2px;font-size:16px;font-weight:800}.ratio button.active{background:var(--blue);border-color:var(--blue);color:#fff}
+    .custom{display:flex;gap:12px;align-items:center;margin-top:13px}.custom input{width:92px}.custom label{margin:0}.custom span{font-weight:700}
+    .results{display:grid;grid-template-columns:1fr 1fr;gap:11px}.result{border-radius:15px;padding:16px 8px;text-align:center}.result.short{background:#e8f2ff;color:#1058a6}.result.long{background:#e5f7ef;color:#086b4a}.result .cap{font-size:13px;font-weight:800}.value{font-size:clamp(38px,10vw,57px);font-weight:900;letter-spacing:-.04em;white-space:nowrap;line-height:1.35}.unit{font-size:17px;margin-left:2px}.desc{font-size:12px;font-weight:700}
+    .summary{font-size:14px;margin:14px 0 0;color:#364b5e}.allocation{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}.allocation-item{border:1px solid var(--line);border-radius:13px;padding:12px;text-align:center;background:#fafcff}.allocation-label{font-size:13px;font-weight:800;color:#43566c}.allocation-value{font-size:32px;font-weight:900;line-height:1.4}.allocation-diff{font-size:12px;color:var(--muted)}.error{color:var(--danger);font-weight:750;padding:10px 0}.notice{border-left:4px solid #d39526;padding-left:11px;font-size:13px;color:#615022;margin-top:13px}
+    .footer{display:flex;justify-content:space-between;align-items:center;gap:8px}.reset{border:1px solid #b6c3d0;background:#fff;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:700}.small{font-size:12px;color:var(--muted)}
+    .info{background:#f6f9fc;border-radius:12px;padding:11px 13px;font-size:13px;margin-top:11px}.info p{margin:3px 0}button{cursor:pointer}button:focus-visible{outline:3px solid #f9bb4e;outline-offset:3px}
+    @media(max-width:360px){main{padding-left:10px;padding-right:10px}.card{padding:12px}.ratio button{font-size:14px}.result{padding-left:3px;padding-right:3px}}
+  </style>
+</head>
+<body>
+<main>
+  <header><h1>薬液注入 切替計算</h1><p class="sub">ショート／ロングの切替表示値を計算する試作品</p></header>
+  <section class="card" aria-label="注入量設定">
+    <h2 class="section-title">① 流量計の初期設定</h2>
+    <div class="fields">
+      <div><label for="short">ショート (L)</label><input id="short" type="number" inputmode="decimal" min="0" step="any" value="13"></div>
+      <div><label for="long">ロング (L)</label><input id="long" type="number" inputmode="decimal" min="0" step="any" value="24"></div>
+    </div>
+    <p class="hint">合計 <strong id="total">37 L</strong></p>
+  </section>
+  <section class="card" aria-label="切替設定">
+    <h2 class="section-title">② 切替量と比率</h2>
+    <label for="first">最初のショート切替量 (L)</label>
+    <input id="first" type="number" inputmode="decimal" min="2" step="any" value="2">
+    <p class="hint">現場の標準は2 L。必要に応じて変更できます（2 L未満は警告）。</p>
+    <div style="height:17px"></div>
+    <label>ショート：ロング</label>
+    <div class="ratio" role="group" aria-label="比率を選択">
+      <button type="button" data-ratio="1">1：1</button><button type="button" data-ratio="2" class="active">1：2</button><button type="button" data-ratio="3">1：3</button><button type="button" data-ratio="4">1：4</button>
+    </div>
+    <div class="custom"><label for="customRatio">その他 1：</label><input id="customRatio" type="number" inputmode="decimal" min="0.01" step="any" placeholder="例 2.5"><span id="customHint" class="small">任意の比率も入力可能</span></div>
+  </section>
+  <section class="card" aria-label="計算結果" aria-live="polite">
+    <h2 class="section-title">③ 切替時の表示値</h2>
+    <div id="output">
+      <div class="results">
+        <div class="result short"><div class="cap">ショート → ロング</div><div class="value"><span id="shortSwitch">2</span><span class="unit">L</span></div><div class="desc">ショートがこの量に達したら</div></div>
+        <div class="result long"><div class="cap">ロング → ショート</div><div class="value"><span id="longSwitch">14</span><span class="unit">L</span></div><div class="desc">ロングがこの量に達したら</div></div>
+      </div>
+      <h3 style="font-size:15px;margin:19px 0 5px">比率変更後の目標注入量</h3>
+      <p class="hint" style="margin:0 0 8px">初期設定と比較して、各液を合計何L注入する計算かを表示します。</p>
+      <div class="allocation">
+        <div class="allocation-item"><div class="allocation-label">ショート 合計</div><div class="allocation-value"><span id="targetShort">12</span> L</div><div class="allocation-diff" id="diffShort">初期13 L → 目標12 L</div></div>
+        <div class="allocation-item"><div class="allocation-label">ロング 合計</div><div class="allocation-value"><span id="targetLong">25</span> L</div><div class="allocation-diff" id="diffLong">初期24 L → 目標25 L</div></div>
+      </div>
+      <p class="summary" id="summary">合計37 L ／ 目標比率 1：2</p>
+    </div>
+    <div class="error" id="error" hidden role="alert"></div>
+    <div class="info">
+      <p><strong>計算方法（確認済みの手書き表に合わせた暫定式）</strong></p>
+      <p>目標ロング量＝合計量 × 比率 ÷（1＋比率）を1 L単位で四捨五入。</p>
+      <p>ロング切替値＝目標ロング量 −（初期ショート量 − 最初のショート切替量）。</p>
+    </div>
+    <div class="notice">現場実用前の検証版です。流量計やバルブには接続しません。機器の積算表示方式・実際の注入手順・端数処理を確認してから運用してください。</div>
+  </section>
+  <div class="footer"><span class="small">入力値はこの端末内だけで計算します。</span><button type="button" id="reset" class="reset">初期値に戻す</button></div>
+</main>
+<script>
+(()=>{
+  const ids=['short','long','first','customRatio'];
+  const el=Object.fromEntries([...ids,'total','shortSwitch','longSwitch','targetShort','targetLong','diffShort','diffLong','summary','output','error','reset','customHint'].map(id=>[id,document.getElementById(id)]));
+  const buttons=[...document.querySelectorAll('[data-ratio]')];
+  let ratio=2;
+  const n=x=>Number(x.value);
+  const fmt=x=>Number.isInteger(x)?String(x):x.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  const round=x=>Math.floor(x+0.5);
+  function calc(){
+    const S=n(el.short),L=n(el.long),F=n(el.first),R=ratio;
+    const err=[];
+    if([el.short,el.long,el.first].some(e=>e.value.trim()==='')||![S,L,F,R].every(Number.isFinite)||S<=0||L<=0||R<=0)err.push('初期設定量と比率は0より大きい数値を入力してください。');
+    if(F<2)err.push('ショート切替量は安全上の目安として2 L以上にしてください。');
+    if(F>S)err.push('最初のショート切替量はショート初期設定量を超えられません。');
+    let targetS,targetL,cut;
+    if(!err.length){
+      targetL=round((S+L)*R/(1+R));targetS=(S+L)-targetL;cut=targetL-(S-F);
+      if(cut<0||cut>L)err.push('この組み合わせではロング切替値が設定範囲外です。初期設定量・切替量・比率を調整してください。');
+    }
+    el.output.hidden=err.length>0;el.error.hidden=err.length===0;
+    if(err.length){el.error.textContent=err.join(' ');return;}
+    el.total.textContent=fmt(S+L)+' L';
+    el.shortSwitch.textContent=fmt(F);el.longSwitch.textContent=fmt(cut);
+    el.targetShort.textContent=fmt(targetS);
+    el.targetLong.textContent=fmt(targetL);
+    el.diffShort.textContent='初期 '+fmt(S)+' L → 目標 '+fmt(targetS)+' L';
+    el.diffLong.textContent='初期 '+fmt(L)+' L → 目標 '+fmt(targetL)+' L';
+    el.summary.textContent='合計 '+fmt(S+L)+' L ／ 目標比率 1：'+fmt(R)+'（1 L単位で丸め）';
+  }
+  for(const id of ['short','long','first'])el[id].addEventListener('input',calc);
+  for(const b of buttons)b.addEventListener('click',()=>{ratio=Number(b.dataset.ratio);el.customRatio.value='';buttons.forEach(v=>{v.classList.toggle('active',v===b);v.setAttribute('aria-pressed',String(v===b));});calc()});
+  el.customRatio.addEventListener('input',()=>{if(el.customRatio.value.trim()==='')return;ratio=n(el.customRatio);buttons.forEach(b=>{b.classList.remove('active');b.setAttribute('aria-pressed','false')});calc()});
+  el.reset.addEventListener('click',()=>{el.short.value='13';el.long.value='24';el.first.value='2';el.customRatio.value='';buttons.find(b=>b.dataset.ratio==='2').click()});
+  buttons.forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.ratio)===ratio)));
+  calc();
+})();
+</script>
+</body>
+</html>
